@@ -17,12 +17,14 @@ See [docs/WAIST_SPEC.md](docs/WAIST_SPEC.md) for field layouts and gate preceden
 
 - **`include/nx_companion/companion_state.h`** — Append-only `CompanionState` (`v1`/`v2`), derived `stamina_wheel`, bounded `companion_latch_step`, and `companion_compute_gate`.
 - **`include/nx_companion/companion_verbs.h`** — Fixed 8-slot fail-closed frame-end action queue (`CompanionVerbQueue`).
+- **`include/nx_companion/companion_trail.h`** — Zero-allocation 128-point 3D spatial breadcrumb ring, multi-floor elevation classifier (`BELOW / LEVEL / ABOVE`), 8-slot waypoint pins, and North-Up / Heading-Up SO(2) radar projection.
+- **`include/nx_companion/companion_seq.h`** — Deterministic 16-step fail-closed button/melody sequencer (`nx_seq_start`, `nx_seq_tick`, immediate abort when safety gates drop).
 - **`include/nx_companion/companion_probe.h`** — `[lo, hi)` bounds-checked `NxGuestMem` reads, `8`-byte-aligned `nx_probe_chain`, `nx_murmur3_x86_32`, and Project Owl `gmd::GameDataMgr` lookup helpers.
-- **`adapters/oot_sw2/oot_sw2_adapter.h`** — Clean-room MIT adapter for Switch 2 *Ocarina of Time* (`0400486024DEC000`, `v131072` build `e0f3ccfaf50065ae4ea01eb5aeb13b1a`, MIT offsets from `NaviScout`, `OOT-SW2SE`, `Links-Toolbox`, `BananaNative`).
+- **`adapters/oot_sw2/`** (`oot_sw2_adapter.h`, `oot_sw2_catalog.h`) — Clean-room MIT adapter and metadata catalog for Switch 2 *Ocarina of Time* (`0400486024DEC000`, `v131072` build `e0f3ccfaf50065ae4ea01eb5aeb13b1a`, MIT offsets/hashes from `NaviScout`, `OOT-SW2SE`, `Links-Toolbox`, `BananaNative`): hearts, magic, rupees/wallet, ammo/caps, 8 dungeon small keys, 5 bottle contents, Spiritual Stones, Medallions, 12 Ocarina melodies + Switch 2 Normal/Classic note bindings, scene resolver, and Player XYZ.
 - **`adapters/ktgl/ktgl_adapter.h`** — Clean-room MIT KTGL adapter scaffold (`04003F40232DE000` *Hyrule Warriors: Age of Imprisonment* `v196608` / *Age of Calamity*), gated by `main` build ID, host `save_busy`, and `in_movie` dim state.
-- **`android/core/`** — Pure-Java secondary-display core (`DisplayClassifier`, `AmoledBurnInGuard`, `CompanionStateWords`, `TelemetryRing`) with zero Android framework dependencies so hosts can compile and unit-test on desktop JDK.
+- **`android/core/`** — Pure-Java secondary-display core (`DisplayClassifier`, `AmoledBurnInGuard`, `CompanionStateWords`, `TelemetryRing`, `RadarMath`, `MelodySequencer`) with zero Android framework dependencies so hosts can compile and unit-test on desktop JDK.
 - **`android/presentation/`** — Thin Android SDK `SecondScreenPresentation` helper (`FLAG_NOT_FOCUSABLE`, `onStart`/`onStop` visibility sync, AMOLED orbit transform). Note: compiling `android/presentation/` requires Android SDK `android.jar`; `make test` compiles and verifies all C11 headers/adapters and `android/core/` standalone.
-- **`tests/` & `scripts/verify_repo.py`** — C11 ASan/UBSan tests (`t_companion_waist`, `t_companion_verbs`, `t_companion_probe`), `JvmShellTest`, SPDX MIT header verifier, and leak check.
+- **`tests/` & `scripts/verify_repo.py`** — C11 ASan/UBSan tests (`t_companion_waist`, `t_companion_verbs`, `t_companion_probe`, `t_companion_trail`, `t_companion_seq`), `JvmShellTest`, SPDX MIT header verifier, and leak check.
 
 ## Building and Testing
 

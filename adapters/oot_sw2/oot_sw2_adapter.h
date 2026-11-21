@@ -7,6 +7,7 @@
 
 #include "nx_companion/companion_probe.h"
 #include "nx_companion/companion_state.h"
+#include "oot_sw2/oot_sw2_catalog.h"
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
@@ -47,11 +48,47 @@ extern "C" {
 #define OOT_KEY_MAGIC               0x76B18200U
 #define OOT_KEY_MAX_MAGIC           0x12D63A97U
 #define OOT_KEY_RUPEES              0xA77921D7U
+#define OOT_KEY_WALLET_CAP          0xE0010A50U
 #define OOT_KEY_GOLD_TOKENS         0x04735978U
 #define OOT_KEY_EQUIP_0             0xA95A3521U
 #define OOT_KEY_EQUIP_1             0xEE463235U
 #define OOT_KEY_EQUIP_2             0xA1F7EE2BU
 #define OOT_KEY_EQUIP_3             0x2342B619U
+#define OOT_KEY_STICKS              0xB9494411U
+#define OOT_KEY_STICKS_CAP          0x457616B0U
+#define OOT_KEY_NUTS                0xF30D9F54U
+#define OOT_KEY_NUTS_CAP            0x735B00F7U
+#define OOT_KEY_SEEDS               0x5FADF7FCU
+#define OOT_KEY_SEEDS_CAP           0xAE8CC742U
+#define OOT_KEY_ARROWS              0x518EC74BU
+#define OOT_KEY_ARROWS_CAP          0x418DB791U
+#define OOT_KEY_BOMBS               0xDB1BCD4FU
+#define OOT_KEY_BOMBCHUS            0xDF7C517AU
+#define OOT_KEY_BOMBS_CAP           0xE753508BU
+#define OOT_KEY_BEANS               0xB003124DU
+
+#define OOT_AMMO_STICKS   0
+#define OOT_AMMO_NUTS     1
+#define OOT_AMMO_SEEDS    2
+#define OOT_AMMO_ARROWS   3
+#define OOT_AMMO_BOMBS    4
+#define OOT_AMMO_BOMBCHUS 5
+#define OOT_AMMO_COUNT    6
+#define OOT_KEY_DUNGEON_N 8
+#define OOT_BOTTLE_SLOTS  5
+
+static const uint32_t OOT_SW2_SMALL_KEY_KEYS[OOT_KEY_DUNGEON_N] = {
+    0x7DD79D10U, 0x90237092U, 0x1DF11487U, 0x877BDCEEU,
+    0x5EDDA9E3U, 0x79EEEC8EU, 0x3A28B6A4U, 0xEA9786F5U
+};
+
+static const uint32_t OOT_SW2_BOTTLE_TRIPLES[OOT_BOTTLE_SLOTS][3] = {
+    { 0xD53CE3A7U, 0xF39CE410U, 0x7D48DF76U },
+    { 0xFCA29A04U, 0x000FF6EAU, 0x1EDD164AU },
+    { 0x893216A1U, 0xF63B1194U, 0xB80C70A8U },
+    { 0x5324F9D3U, 0xB7F052CEU, 0xE4C1B1FCU },
+    { 0xC92B16BEU, 0xE27B136DU, 0x365E1953U }
+};
 
 static const uint32_t OOT_SW2_TRANSITION_KEYS[5] = {
     OOT_KEY_EVENT_GUARD_0,
@@ -85,13 +122,21 @@ typedef struct OotSw2Snapshot {
     int32_t magic;
     int32_t max_magic;
     int32_t rupees;
+    int32_t wallet_cap;
     int32_t gold_tokens;
+    int32_t beans;
+    int32_t ammo[OOT_AMMO_COUNT];
+    int32_t ammo_cap[OOT_AMMO_COUNT];
+    int32_t small_keys[OOT_KEY_DUNGEON_N];
+    uint8_t bottles[OOT_BOTTLE_SLOTS];
     uint32_t stones_mask;
     uint32_t medallions_mask;
     uint32_t songs_mask;
     int have_player_xyz;
     float player_xyz[3];
     char scene[64];
+    char radar_loc[64];
+    char equip_slots[4][64];
 } OotSw2Snapshot;
 
 static inline uint32_t oot_sw2_read_bitmask(
@@ -129,6 +174,56 @@ static inline void oot_sw2_sample_player(
     }
 }
 
+static inline void oot_sw2_sample_supplies(
+    const NxGuestMem *m, uint64_t mgr, OotSw2Snapshot *out) {
+    assert(out != NULL);
+    static const uint32_t ammo_k[OOT_AMMO_COUNT] = {
+        OOT_KEY_STICKS, OOT_KEY_NUTS, OOT_KEY_SEEDS,
+        OOT_KEY_ARROWS, OOT_KEY_BOMBS, OOT_KEY_BOMBCHUS
+    };
+    static const uint32_t cap_k[OOT_AMMO_COUNT] = {
+        OOT_KEY_STICKS_CAP, OOT_KEY_NUTS_CAP, OOT_KEY_SEEDS_CAP,
+        OOT_KEY_ARROWS_CAP, OOT_KEY_BOMBS_CAP, OOT_KEY_BOMBS_CAP
+    };
+    (void)nx_gdm_read_s32(m, mgr, &NX_GDM_LAYOUT_OWL, OOT_KEY_WALLET_CAP, &out->wallet_cap);
+    (void)nx_gdm_read_s32(m, mgr, &NX_GDM_LAYOUT_OWL, OOT_KEY_BEANS, &out->beans);
+    for (int i = 0; i < OOT_AMMO_COUNT; i++) {
+        (void)nx_gdm_read_s32(m, mgr, &NX_GDM_LAYOUT_OWL, ammo_k[i], &out->ammo[i]);
+        (void)nx_gdm_read_s32(m, mgr, &NX_GDM_LAYOUT_OWL, cap_k[i], &out->ammo_cap[i]);
+    }
+    for (int i = 0; i < OOT_KEY_DUNGEON_N; i++) {
+        (void)nx_gdm_read_s32(m, mgr, &NX_GDM_LAYOUT_OWL,
+                              OOT_SW2_SMALL_KEY_KEYS[i], &out->small_keys[i]);
+    }
+}
+
+static inline void oot_sw2_sample_bottles_and_slots(
+    const NxGuestMem *m, uint64_t mgr, OotSw2Snapshot *out) {
+    assert(out != NULL);
+    static const uint32_t slot_k[4] = {
+        OOT_KEY_EQUIP_0, OOT_KEY_EQUIP_1, OOT_KEY_EQUIP_2, OOT_KEY_EQUIP_3
+    };
+    (void)nx_gdm_read_str64(m, mgr, &NX_GDM_LAYOUT_OWL, OOT_KEY_RADAR_LOCATION,
+                            out->radar_loc, sizeof(out->radar_loc));
+    for (int i = 0; i < 4; i++) {
+        (void)nx_gdm_read_str64(m, mgr, &NX_GDM_LAYOUT_OWL, slot_k[i],
+                                out->equip_slots[i], sizeof(out->equip_slots[i]));
+    }
+    for (int i = 0; i < OOT_BOTTLE_SLOTS; i++) {
+        for (int k = 0; k < 3; k++) {
+            int32_t raw = 0;
+            if (nx_gdm_read_s32(m, mgr, &NX_GDM_LAYOUT_OWL,
+                                OOT_SW2_BOTTLE_TRIPLES[i][k], &raw)) {
+                uint8_t kind = oot_sw2_bottle_decode((uint32_t)raw);
+                if (kind != OOT_BOTTLE_NONE) {
+                    out->bottles[i] = kind;
+                    break;
+                }
+            }
+        }
+    }
+}
+
 /* Sample MIT gmd::GameDataMgr + Player XYZ into out. Returns 1 when readable. */
 static inline int oot_sw2_sample(
     const NxGuestMem *m, uint64_t main_base, OotSw2Snapshot *out) {
@@ -163,6 +258,8 @@ static inline int oot_sw2_sample(
     out->stones_mask = oot_sw2_read_bitmask(m, mgr, OOT_SW2_STONE_KEYS, 3U, 1);
     out->medallions_mask = oot_sw2_read_bitmask(m, mgr, OOT_SW2_MEDALLION_KEYS, 6U, 1);
     out->songs_mask = oot_sw2_read_bitmask(m, mgr, OOT_SW2_SONG_KEYS, 12U, 0);
+    oot_sw2_sample_supplies(m, mgr, out);
+    oot_sw2_sample_bottles_and_slots(m, mgr, out);
     oot_sw2_sample_player(m, main_base, out);
     out->valid = 1;
     return 1;

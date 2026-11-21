@@ -83,30 +83,39 @@ static void test_murmur3_and_bounds(void) {
 
 static void populate_oot_guest(FakeMem *f, uint64_t mgr, uint64_t *next_addr) {
     uint64_t b_ent = 0x104000ULL, b_tab = 0x104200ULL;
-    uint64_t i_ent = 0x104400ULL, i_tab = 0x104800ULL;
-    uint64_t s_ent = 0x104A00ULL, s_tab = 0x104E00ULL;
-    uint64_t scene_str = 0x105000ULL;
+    uint64_t i_ent = 0x104400ULL, i_tab = 0x104C00ULL;
+    uint64_t s_ent = 0x105200ULL, s_tab = 0x105600ULL;
+    uint64_t scene_str = 0x105800ULL, loc_str = 0x105840ULL;
     init_section(f, mgr, 0U, 2U, b_ent, b_tab, 16U);
-    init_section(f, mgr, 2U, 4U, i_ent, i_tab, 16U);
-    init_section(f, mgr, 16U, 1U, s_ent, s_tab, 8U);
+    init_section(f, mgr, 2U, 10U, i_ent, i_tab, 64U);
+    init_section(f, mgr, 16U, 2U, s_ent, s_tab, 16U);
 
-    wrstr(f, scene_str, "Spot04");
+    wrstr(f, scene_str, "MIZUsin");
     wr64(f, s_ent + NX_GDM_LAYOUT_OWL.str64_ptr_off, scene_str);
-    put_gdm_slot(f, s_tab, 8U, OOT_KEY_CURRENT_BANC, 0U);
+    put_gdm_slot(f, s_tab, 16U, OOT_KEY_CURRENT_BANC, 0U);
+    wrstr(f, loc_str, "Central Pillar");
+    wr64(f, s_ent + NX_GDM_LAYOUT_OWL.str64_stride + NX_GDM_LAYOUT_OWL.str64_ptr_off, loc_str);
+    put_gdm_slot(f, s_tab, 16U, OOT_KEY_RADAR_LOCATION, 1U);
 
     wr8(f, b_ent + NX_GDM_LAYOUT_OWL.bool_val_off, 1U);
     put_gdm_slot(f, b_tab, 16U, OOT_KEY_IS_CHILDHOOD, 0U);
     wr8(f, b_ent + NX_GDM_LAYOUT_OWL.bool_stride + NX_GDM_LAYOUT_OWL.bool_val_off, 0U);
     put_gdm_slot(f, b_tab, 16U, OOT_SW2_TRANSITION_KEYS[0], 1U);
 
-    wr32(f, i_ent + 0U * NX_GDM_LAYOUT_OWL.s32_stride + NX_GDM_LAYOUT_OWL.s32_val_off, 24U);
-    put_gdm_slot(f, i_tab, 16U, OOT_KEY_LIFE, 0U);
-    wr32(f, i_ent + 1U * NX_GDM_LAYOUT_OWL.s32_stride + NX_GDM_LAYOUT_OWL.s32_val_off, 48U);
-    put_gdm_slot(f, i_tab, 16U, OOT_KEY_MAX_LIFE, 1U);
-    wr32(f, i_ent + 2U * NX_GDM_LAYOUT_OWL.s32_stride + NX_GDM_LAYOUT_OWL.s32_val_off, 120U);
-    put_gdm_slot(f, i_tab, 16U, OOT_KEY_MAGIC, 2U);
-    wr32(f, i_ent + 3U * NX_GDM_LAYOUT_OWL.s32_stride + NX_GDM_LAYOUT_OWL.s32_val_off, 240U);
-    put_gdm_slot(f, i_tab, 16U, OOT_KEY_MAX_MAGIC, 3U);
+    static const uint32_t kIntKeys[10] = {
+        OOT_KEY_LIFE, OOT_KEY_MAX_LIFE, OOT_KEY_MAGIC, OOT_KEY_MAX_MAGIC,
+        OOT_KEY_ARROWS, OOT_KEY_ARROWS_CAP, OOT_KEY_WALLET_CAP,
+        0x877BDCEEU, /* Water Temple small keys */
+        0xD53CE3A7U, /* Bottle 0 slot 0 (non-content) */
+        0x7D48DF76U  /* Bottle 0 slot 2 (content hash) */
+    };
+    static const uint32_t kIntVals[10] = {
+        24U, 48U, 120U, 240U, 18U, 40U, 500U, 3U, 1U, 0x6F49E357U /* Fairy */
+    };
+    for (uint32_t i = 0U; i < 10U; i++) {
+        wr32(f, i_ent + i * NX_GDM_LAYOUT_OWL.s32_stride + NX_GDM_LAYOUT_OWL.s32_val_off, kIntVals[i]);
+        put_gdm_slot(f, i_tab, 64U, kIntKeys[i], i);
+    }
     *next_addr = b_ent;
 }
 
@@ -157,7 +166,13 @@ static void test_oot_and_ktgl_adapters(void) {
     CHECK(oot_sw2_sample(&mem, mc->main_base, &snap) == 1);
     CHECK(snap.valid == 1 && snap.life == 24 && snap.max_life == 48 && snap.magic == 120);
     CHECK(snap.have_player_xyz == 1 && fabsf(snap.player_xyz[0] - 125.5f) < 0.01f);
-    CHECK(strcmp(snap.scene, "Spot04") == 0);
+    CHECK(strcmp(snap.scene, "MIZUsin") == 0);
+    CHECK(strcmp(snap.radar_loc, "Central Pillar") == 0);
+    CHECK(snap.ammo[OOT_AMMO_ARROWS] == 18 && snap.ammo_cap[OOT_AMMO_ARROWS] == 40);
+    CHECK(snap.wallet_cap == 500 && snap.small_keys[3] == 3);
+    CHECK(snap.bottles[0] == OOT_BOTTLE_FAIRY && strcmp(oot_sw2_bottle_label(snap.bottles[0]), "Fairy") == 0);
+    int32_t d_idx = -1;
+    CHECK(strcmp(oot_sw2_resolve_scene(snap.scene, &d_idx), "Water Temple") == 0 && d_idx == 3);
     free(mc);
 
     snap.playing_ocarina = 1;
@@ -202,7 +217,7 @@ static void test_gdm_lookup(void) {
     int32_t life = 0;
     int is_child = 0;
     CHECK(nx_gdm_read_str64(&mem, mgr, &NX_GDM_LAYOUT_OWL, OOT_KEY_CURRENT_BANC, scene, sizeof(scene)) == 1);
-    CHECK(strcmp(scene, "Spot04") == 0);
+    CHECK(strcmp(scene, "MIZUsin") == 0);
     CHECK(nx_gdm_read_s32(&mem, mgr, &NX_GDM_LAYOUT_OWL, OOT_KEY_LIFE, &life) == 1 && life == 24);
     CHECK(nx_gdm_read_bool(&mem, mgr, &NX_GDM_LAYOUT_OWL, OOT_KEY_IS_CHILDHOOD, &is_child) == 1 && is_child == 1);
     CHECK(nx_gdm_read_s32(&mem, mgr, &NX_GDM_LAYOUT_OWL, 0xDEADBEEFU, &life) == 0);

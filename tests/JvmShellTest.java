@@ -3,6 +3,8 @@ import io.github.p1r4n351.secondscreen.core.AmoledBurnInGuard;
 import io.github.p1r4n351.secondscreen.core.CompanionStateWords;
 import io.github.p1r4n351.secondscreen.core.DisplayClassifier;
 import io.github.p1r4n351.secondscreen.core.DisplayClassifier.Role;
+import io.github.p1r4n351.secondscreen.core.MelodySequencer;
+import io.github.p1r4n351.secondscreen.core.RadarMath;
 import io.github.p1r4n351.secondscreen.core.TelemetryRing;
 
 public final class JvmShellTest {
@@ -73,11 +75,27 @@ public final class JvmShellTest {
         check(Math.abs(ring.fps() - 30.0f) < 0.1f, "steady 30 Hz FPS");
     }
 
+    private static void testRadarAndSequencer() {
+        float[] proj = new float[3];
+        check(RadarMath.projectXZ(0.0f, 0.0f, 90.0f, true, 50.0f, 25.0f, 0.0f, proj), "heading-up project");
+        check(Math.abs(proj[0]) < 1e-4f && Math.abs(proj[1] + 0.5f) < 1e-4f && proj[2] == 0.0f, "forward maps to top");
+        check(RadarMath.projectXZ(0.0f, 0.0f, 0.0f, false, 10.0f, 30.0f, 40.0f, proj) && proj[2] == 1.0f, "rim clamp flag");
+        check(RadarMath.floorBand(10.0f, 15.0f, 3.0f) == RadarMath.BAND_ABOVE, "above band");
+        check("10m ▲".equals(RadarMath.formatPinDelta(0f, 10f, 0f, 6f, 15f, 8f, 3f)), "pin delta formatting");
+
+        MelodySequencer seq = new MelodySequencer();
+        check(seq.start(new long[]{1L, 4L}, 2, 0, 100L, 40L, 1000L), "sequencer starts");
+        check(seq.tick(true, 1050L) == 1L && seq.isActive(), "step 0 held");
+        check(seq.tick(true, 1110L) == 0L && seq.isActive(), "inter-step gap");
+        check(seq.tick(false, 1120L) == 0L && !seq.isActive(), "fail-closed abort when gate drops");
+    }
+
     public static void main(String[] args) {
         testDisplayClassifier();
         testBurnInGuard();
         testCompanionStateWords();
         testTelemetryRing();
+        testRadarAndSequencer();
         System.out.println("JvmShellTest: ok");
     }
 }
