@@ -1,0 +1,9 @@
+build/
+*.o
+*.class
+*.a
+*.so
+.DS_Store
+*.bundle
+__pycache__/
+.pytest_cache/
