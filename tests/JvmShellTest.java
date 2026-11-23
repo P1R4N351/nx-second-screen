@@ -6,6 +6,7 @@ import io.github.p1r4n351.secondscreen.core.DisplayClassifier.Role;
 import io.github.p1r4n351.secondscreen.core.MelodySequencer;
 import io.github.p1r4n351.secondscreen.core.RadarMath;
 import io.github.p1r4n351.secondscreen.core.TelemetryRing;
+import io.github.p1r4n351.secondscreen.core.WarriorsCompanionModel;
 
 public final class JvmShellTest {
     private static void check(boolean cond, String msg) {
@@ -90,12 +91,46 @@ public final class JvmShellTest {
         check(seq.tick(false, 1120L) == 0L && !seq.isActive(), "fail-closed abort when gate drops");
     }
 
+    private static void testWarriorsCompanionModel() {
+        WarriorsCompanionModel m = new WarriorsCompanionModel();
+        int[] ints = new int[WarriorsCompanionModel.DETAIL_INTS];
+        float[] flts = new float[WarriorsCompanionModel.DETAIL_FLOATS];
+        ints[0] = CompanionStateWords.STATUS_READY;
+        ints[1] = 1;
+        ints[2] = 1;
+        ints[6] = WarriorsCompanionModel.GAME_AOC;
+        ints[7] = 2;
+        ints[13] = 2;
+        ints[16] = 1;
+        ints[18] = 1;
+        ints[19] = 1;
+        flts[4] = 46.4f;
+        flts[5] = 21.5f;
+        flts[390] = 10f; flts[391] = 0f; flts[392] = 0f;
+        check(m.update(ints, flts, "Keep\n\n\n\n\n\n\n", 1000L), "AOC update");
+        check(m.writeSafe && m.gameKind == WarriorsCompanionModel.GAME_AOC, "AOC unpack");
+        check("RADAR".equals(WarriorsCompanionModel.tabName(0))
+                && "ACTIONS".equals(WarriorsCompanionModel.tabName(1))
+                && "COMBOS".equals(WarriorsCompanionModel.tabName(2))
+                && "STATUS".equals(WarriorsCompanionModel.tabName(3)), "simplified tab labels");
+        check("Bombs".equals(WarriorsCompanionModel.rDeckTitle(WarriorsCompanionModel.GAME_AOC, 0)), "AOC R-deck");
+        check("Sync".equals(WarriorsCompanionModel.rDeckTitle(WarriorsCompanionModel.GAME_AOI, 0)), "AOI R-deck");
+        check("10m".equals(m.formatPinDelta(0)), "pin distance");
+        float[] lr = new float[2];
+        check(WarriorsCompanionModel.tabSlotBounds(0, 1240f, 24f, 16f, lr) && Math.abs((lr[1] - lr[0]) - 286f) < 0.01f,
+                "1240px Display 4 evenly-spaced 286px tabs");
+        check(WarriorsCompanionModel.hitTestTab(450f, 1240f, 24f, 16f) == 1
+                && WarriorsCompanionModel.hitTestTab(620f, 1240f, 24f, 16f) == -1
+                && WarriorsCompanionModel.hitTestTab(750f, 1240f, 24f, 16f) == 2, "tab hit & gap test");
+    }
+
     public static void main(String[] args) {
         testDisplayClassifier();
         testBurnInGuard();
         testCompanionStateWords();
         testTelemetryRing();
         testRadarAndSequencer();
+        testWarriorsCompanionModel();
         System.out.println("JvmShellTest: ok");
     }
 }

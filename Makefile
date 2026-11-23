@@ -7,7 +7,7 @@ CFLAGS ?= -std=c11 -O2 -g -Wall -Wextra -Werror -pedantic -fsanitize=address,und
 JFLAGS ?= -Xlint:all -Werror
 
 CORE_JAVA = $(wildcard android/core/src/main/java/io/github/p1r4n351/secondscreen/core/*.java)
-C_BINS = $(BUILD)/t_companion_waist $(BUILD)/t_companion_verbs $(BUILD)/t_companion_probe $(BUILD)/t_companion_trail $(BUILD)/t_companion_seq
+C_BINS = $(BUILD)/t_companion_waist $(BUILD)/t_companion_verbs $(BUILD)/t_companion_probe $(BUILD)/t_companion_trail $(BUILD)/t_companion_seq $(BUILD)/t_ktgl_companion
 
 .PHONY: all test clean
 
@@ -31,6 +31,9 @@ $(BUILD)/t_companion_trail: tests/t_companion_trail.c include/nx_companion/compa
 $(BUILD)/t_companion_seq: tests/t_companion_seq.c include/nx_companion/companion_seq.h adapters/oot_sw2/oot_sw2_catalog.h | $(BUILD)
 	$(CLANG) $(CFLAGS) -o $@ $<
 
+$(BUILD)/t_ktgl_companion: tests/t_ktgl_companion.c adapters/ktgl/ktgl_companion.h include/nx_companion/companion_seq.h include/nx_companion/companion_state.h include/nx_companion/companion_trail.h | $(BUILD)
+	$(CLANG) $(CFLAGS) -o $@ $< -lm
+
 $(BUILD)/classes/JvmShellTest.class: $(CORE_JAVA) tests/JvmShellTest.java | $(BUILD)
 	$(JAVAC) $(JFLAGS) -d $(BUILD)/classes $(CORE_JAVA) tests/JvmShellTest.java
 
@@ -40,6 +43,7 @@ test: all
 	$(BUILD)/t_companion_probe
 	$(BUILD)/t_companion_trail
 	$(BUILD)/t_companion_seq
+	$(BUILD)/t_ktgl_companion
 	$(JAVA) -ea -cp $(BUILD)/classes JvmShellTest
 
 clean:

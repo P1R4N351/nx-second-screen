@@ -1,4 +1,4 @@
-# Second-Screen Waist Specification (`v0.1.0`, MIT)
+# Second-Screen Waist Specification (`v0.3.0`, MIT)
 
 ## 1. Layering and License Boundary
 
@@ -45,3 +45,10 @@ Word indices are append-only (`-1` means unknown/unread):
 - Every guest read passes `[m->lo, m->hi)` bounds checks before invoking `m->read`.
 - `nx_probe_chain()` caps dereference depth at `8` and validates `8`-byte alignment on every intermediate pointer.
 - `nx_gdm_find_entry()` probes Project Owl `gmd::GameDataMgr` typed sections (`section_stride = 0x60`) using `MurmurHash3_x86_32` with bounded linear probe limits (`<= 16,384`).
+
+
+## 5. KTGL Warriors Companion Adapter (`adapters/ktgl/ktgl_companion.h`)
+
+- **Build-independent host integration:** Consumes host-level signals (`main_loaded`, `build_ok`, `host_paused`, `movie_playing`, `save_busy`, `save_commits`, stick axes, and physical button mask) with zero guest-RAM offsets, so companion telemetry and macros work across game updates without per-build pointer tables.
+- **Detail ABI (`32` `int32_t` + `416` `float` + newline-delimited pin labels):** Packs `CompanionState` words, active party slot, save commit count/age, active sequencer step, `[pos_x, pos_y, pos_z, yaw_deg, fps, frame_ms]`, `128` XYZ trail points (`6..389`), and `8` `[x, y, z]` tactical pins (`390..413`, gated by `pin_mask` in `ints[16]`).
+- **Fail-closed chord sequencer:** Dispatches party swaps (`KTGL_ACT_PARTY_0..3`), `R + Y/X/B/A` (`10..13`), `L + Y/X/B/A` (`20..23`), lock-on / special / dodge (`30..32`), and `C1..C6` combos (`40..45`) through `NxCompanionSeq`, aborting immediately if `ktgl_companion_write_safe()` drops or physical face/shoulder buttons are pressed.
